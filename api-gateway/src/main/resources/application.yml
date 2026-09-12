@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+jwt:
+  # auth-service와 반드시 동일한 값을 써야 한다 — 서명 검증용 공유 시크릿.
+  # 로컬 개발 기본값일 뿐, 운영은 08-deployment.md의 Secrets Manager에서 주입한다.
+  secret: ${JWT_SECRET:local-dev-only-change-me-0123456789abcdef}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URI:http://localhost:3001}
+          predicates:
+            - Path=/api/auth/**
+        - id: finance-service-receipts
+          uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
+          predicates:
+            - Path=/api/receipts/**
+        - id: finance-service-tax-invoices
+          uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
+          predicates:
+            - Path=/api/tax-invoices/**
+        - id: finance-service-clients
+          uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
+          predicates:
+            - Path=/api/clients/**
+        - id: finance-service-exports
+          uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
+          predicates:
+            - Path=/api/exports/**
+        - id: drawing-service
+          uri: ${DRAWING_SERVICE_URI:http://localhost:3003}
+          predicates:
+            - Path=/api/drawings/**
+        - id: product-service
+          uri: ${PRODUCT_SERVICE_URI:http://localhost:3004}
+          predicates:
+            - Path=/api/products/**
+        - id: analytics-service-dashboard
+          uri: ${ANALYTICS_SERVICE_URI:http://localhost:3006}
+          predicates:
+            - Path=/api/dashboard/**
+
+# 04-system-architecture.md 라우팅 규칙을 그대로 옮긴 것 — 새 경로가 생기면 이 표와
+# 06-api-design.md 양쪽에 같이 추가한다.
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

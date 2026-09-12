@@ -1,0 +1,10 @@
+rootProject.name = 'kitchen-backend'
+
+include 'common'
+include 'api-gateway'
+include 'auth-service'
+include 'finance-service'
+include 'drawing-service'
+include 'product-service'
+include 'notification-service'
+include 'analytics-service'

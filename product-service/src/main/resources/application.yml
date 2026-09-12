@@ -1,0 +1,12 @@
+server:
+  port: 3004
+
+spring:
+  application:
+    name: product-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

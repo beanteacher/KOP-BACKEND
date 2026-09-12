@@ -1,0 +1,12 @@
+server:
+  port: 3006
+
+spring:
+  application:
+    name: analytics-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

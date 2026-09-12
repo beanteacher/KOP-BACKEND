@@ -1,0 +1,12 @@
+server:
+  port: 3005
+
+spring:
+  application:
+    name: notification-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

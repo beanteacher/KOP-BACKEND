@@ -1,0 +1,12 @@
+server:
+  port: 3003
+
+spring:
+  application:
+    name: drawing-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
