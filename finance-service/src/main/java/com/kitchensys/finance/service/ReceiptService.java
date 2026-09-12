@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 /** 03-feature-spec.md 모듈 A(영수증 처리) A-1~A-3. 이미지 업로드(A-1 일부)·내보내기(A-4)는 별도 작업. */
@@ -46,9 +47,10 @@ public class ReceiptService {
         UUID clientId = parseUuidOrNull(request.clientId());
 
         Receipt receipt = Receipt.register(
-            companyId, UUID.fromString(principal.employeeId()), request.receiptDate(), request.amount(),
+            companyId, UUID.fromString(principal.employeeId()), request.receiptDate(),
             request.vendorName(), clientId, category, request.memo()
         );
+        receipt.replaceItems(toItemInputs(request.items()));
         // saveAndFlush — @CreationTimestamp(createdAt)는 INSERT 시점(flush)에 채워진다.
         // save()만 하면 트랜잭션이 아직 안 끝나 flush 전이라 응답에 createdAt이 null로 나간다.
         return ReceiptDto.Response.from(receiptRepository.saveAndFlush(receipt));
@@ -57,15 +59,16 @@ public class ReceiptService {
     @Transactional(readOnly = true)
     public ListResult list(
         EmployeePrincipal principal, LocalDate from, LocalDate to,
-        String clientIdParam, String categoryParam, String createdByParam, Pageable pageable
+        String clientIdParam, String categoryParam, String createdByParam, String vendorName, Pageable pageable
     ) {
         UUID companyId = UUID.fromString(principal.companyId());
         UUID clientId = parseUuidOrNull(clientIdParam);
         ReceiptCategory category = categoryParam == null ? null : parseCategory(categoryParam);
         UUID createdBy = principal.isAdmin() ? parseUuidOrNull(createdByParam) : UUID.fromString(principal.employeeId());
+        String vendorNameFilter = (vendorName == null || vendorName.isBlank()) ? null : vendorName.trim();
 
-        Page<Receipt> page = receiptRepository.search(companyId, from, to, clientId, category, createdBy, pageable);
-        long totalAmount = receiptRepository.sumAmount(companyId, from, to, clientId, category, createdBy);
+        Page<Receipt> page = receiptRepository.search(companyId, from, to, clientId, category, createdBy, vendorNameFilter, pageable);
+        long totalAmount = receiptRepository.sumAmount(companyId, from, to, clientId, category, createdBy, vendorNameFilter);
         return new ListResult(page, totalAmount);
     }
 
@@ -83,8 +86,11 @@ public class ReceiptService {
 
         ReceiptCategory category = parseCategory(request.category());
         UUID clientId = parseUuidOrNull(request.clientId());
-        receipt.update(request.receiptDate(), request.amount(), request.vendorName(), clientId, category, request.memo());
-        return ReceiptDto.Response.from(receipt);
+        receipt.update(request.receiptDate(), request.vendorName(), clientId, category, request.memo());
+        receipt.replaceItems(toItemInputs(request.items()));
+        // saveAndFlush — 새로 추가된 품목의 id(@GeneratedValue)는 cascade PERSIST가 실제로
+        // 나가는 flush 시점에 채워진다. register()의 createdAt과 같은 이유로 flush를 강제한다.
+        return ReceiptDto.Response.from(receiptRepository.saveAndFlush(receipt));
     }
 
     @Transactional
@@ -131,6 +137,14 @@ public class ReceiptService {
 
     private UUID parseUuidOrNull(String value) {
         return value == null ? null : UUID.fromString(value);
+    }
+
+    /** 컨트롤러의 @Valid(@NotEmpty)로도 막히지만, Service 단독 호출(테스트 포함)에도 같은 불변식을 지킨다. */
+    private List<Receipt.ItemInput> toItemInputs(List<ReceiptDto.ItemRequest> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "품목은 최소 1개 이상 등록해야 합니다");
+        }
+        return items.stream().map(i -> new Receipt.ItemInput(i.name(), i.quantity(), i.unitPrice())).toList();
     }
 
     public record ListResult(Page<Receipt> receipts, long totalAmount) {}

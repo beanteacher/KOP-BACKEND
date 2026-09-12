@@ -41,6 +41,7 @@ public class ReceiptController {
         @RequestParam(required = false) String clientId,
         @RequestParam(required = false) String category,
         @RequestParam(required = false) String createdBy,
+        @RequestParam(required = false) String vendorName,
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
@@ -50,7 +51,7 @@ public class ReceiptController {
         LocalDate effectiveTo = to != null ? to : today;
 
         ReceiptService.ListResult result = receiptService.list(
-            principal, effectiveFrom, effectiveTo, clientId, category, createdBy, PageRequest.of(page - 1, size)
+            principal, effectiveFrom, effectiveTo, clientId, category, createdBy, vendorName, PageRequest.of(page - 1, size)
         );
         Page<ReceiptDto.ListItem> items = result.receipts().map(ReceiptDto.ListItem::from);
         return ResponseEntity.ok(ApiResponse.of(items.getContent(), PageMeta.from(items, result.totalAmount())));

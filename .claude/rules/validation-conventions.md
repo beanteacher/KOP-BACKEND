@@ -13,5 +13,7 @@
 | 이메일 | 255 | 모든 이메일 필드 |
 | 전화번호 | 15 | `phone` |
 | 비밀번호(해싱됨) | 8~72 | `password`, `newPassword` |
+| 거래처명 | 100 | `ReceiptDto.vendorName` |
+| 메모 | 200 | `ReceiptDto.memo` |
 
 새로운 필드 성격(주소, 메모 등)이 나오면 위 표에 추가하고, `05-database-schema.md`의 해당 컬럼 VARCHAR 길이보다 좁게 잡는다. `kitchen-frontend/.claude/rules/validation-conventions.md`와 항상 동일하게 유지한다.
