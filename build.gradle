@@ -35,5 +35,14 @@ subprojects {
         testAnnotationProcessor 'org.projectlombok:lombok'
     }
 
-    test { useJUnitPlatform() }
+    test {
+        useJUnitPlatform()
+        // 기본값은 "BUILD SUCCESSFUL"만 찍고 개별 테스트 결과는 HTML 리포트에만 남는다.
+        // 콘솔에서 테스트 케이스별로 통과/실패가 바로 보이게 한다.
+        testLogging {
+            events "passed", "skipped", "failed"
+            exceptionFormat "full"
+            showStandardStreams = false
+        }
+    }
 }
