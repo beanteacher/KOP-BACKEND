@@ -5,6 +5,32 @@ spring:
   application:
     name: finance-service
 
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kitchensys}
+    username: ${DB_USERNAME:kitchensys}
+    password: ${DB_PASSWORD:kitchensys}
+    hikari:
+      schema: finance
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: finance
+        format_sql: false
+
+  flyway:
+    schemas: finance
+    default-schema: finance
+    locations: classpath:db/migration
+
+# auth-service·api-gateway와 반드시 같은 값을 써야 한다(서명 검증 공유 시크릿).
+# 로컬 기본값일 뿐 — 운영은 08-deployment.md Secrets Manager에서 주입.
+jwt:
+  secret: ${JWT_SECRET:local-dev-only-change-me-0123456789abcdef}
+
 management:
   endpoints:
     web:
