@@ -50,7 +50,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthDto.RefreshResponse>> refresh(
-        @CookieValue(REFRESH_COOKIE) String refreshToken, HttpServletResponse response
+        @CookieValue(value = REFRESH_COOKIE, required = false) String refreshToken, HttpServletResponse response
     ) {
         AuthService.RefreshResult result = authService.refresh(refreshToken);
         setRefreshCookie(response, result.refreshToken());
