@@ -2,6 +2,9 @@ version: '3.8'
 
 # 로컬 개발용 인프라. 08-deployment.md의 운영 구성(RDS/MSK/ElastiCache)과 스펙은 다르지만
 # 스키마 분리·토픽 이름 같은 "모양"은 최대한 그대로 맞춘다.
+# project name을 폴더명과 무관하게 고정 — 폴더를 옮기거나 이름이 바뀌어도 항상 같은
+# 컨테이너·named volume(kop-backend_*)을 찾아간다.
+name: kop-backend
 services:
   postgres:
     image: postgres:16-alpine

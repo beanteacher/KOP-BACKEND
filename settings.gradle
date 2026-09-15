@@ -1,4 +1,4 @@
-rootProject.name = 'kitchen-backend'
+rootProject.name = 'kop-backend'
 
 include 'common'
 include 'api-gateway'

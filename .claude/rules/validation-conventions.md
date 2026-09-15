@@ -1,4 +1,4 @@
-# 입력 길이 상한 값 (kitchen-backend)
+# 입력 길이 상한 값 (kop-backend)
 
 규칙 자체(왜 필요한지, 상한을 정하는 기준, bcrypt 72바이트 제약)는 `~/workspace/.claude/principles/api-conventions.md`
 (스택 무관 공통 Iron Rule)와 `java_backend_workspace/.claude/principles/api-conventions.md`(Java 구체화)를 따른다.
@@ -16,4 +16,4 @@
 | 거래처명 | 100 | `ReceiptDto.vendorName` |
 | 메모 | 200 | `ReceiptDto.memo` |
 
-새로운 필드 성격(주소, 메모 등)이 나오면 위 표에 추가하고, `05-database-schema.md`의 해당 컬럼 VARCHAR 길이보다 좁게 잡는다. `kitchen-frontend/.claude/rules/validation-conventions.md`와 항상 동일하게 유지한다.
+새로운 필드 성격(주소, 메모 등)이 나오면 위 표에 추가하고, `05-database-schema.md`의 해당 컬럼 VARCHAR 길이보다 좁게 잡는다. `kop-frontend/.claude/rules/validation-conventions.md`와 항상 동일하게 유지한다.
