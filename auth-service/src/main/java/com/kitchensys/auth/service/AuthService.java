@@ -1,5 +1,6 @@
 package com.kitchensys.auth.service;
 
+import com.kitchensys.auth.crypto.AesEncryptor;
 import com.kitchensys.auth.domain.Company;
 import com.kitchensys.auth.domain.Employee;
 import com.kitchensys.auth.dto.AuthDto;
@@ -39,6 +40,7 @@ public class AuthService {
     private final OneTimeTokenService oneTimeTokenService;
     private final EmailSender emailSender;
     private final AuthEventPublisher eventPublisher;
+    private final AesEncryptor aesEncryptor;
 
     /** X-1 업체 계정 생성 — 회사 + 관리자 직원을 한 트랜잭션으로 만든다. */
     public AuthDto.RegisterResponse register(AuthDto.RegisterRequest request) {
@@ -52,6 +54,9 @@ public class AuthService {
         Company company = companyRepository.save(
             Company.register(request.companyName(), request.businessRegistrationNumber(), request.representativeName(), request.phone())
         );
+        // 주소·팩스·계좌정보는 선택 입력 — register()의 필수 4개 필드와 분리해 updateProfile로 마저 채운다.
+        company.updateProfile(null, request.fax(), request.address(), request.bankName(), request.bankAccountHolder(),
+            aesEncryptor.encrypt(request.bankAccountNumber()));
         Employee admin = employeeRepository.save(
             Employee.createAdmin(company, request.email(), passwordEncoder.encode(request.password()), request.representativeName())
         );
@@ -131,6 +136,34 @@ public class AuthService {
         Employee employee = employeeRepository.findById(employeeId)
             .orElseThrow(() -> new EntityNotFoundException("직원", employeeId));
         return AuthDto.MeResponse.from(employee);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthDto.CompanyProfileResponse companyProfile(UUID companyId) {
+        return toProfileResponse(findCompany(companyId));
+    }
+
+    /** 관리자 전용 사업자 프로필 수정 — 상호·사업자번호·대표자명은 여기서 바꾸지 않는다. */
+    public AuthDto.CompanyProfileResponse updateCompanyProfile(UUID companyId, AuthDto.CompanyProfileUpdateRequest request) {
+        Company company = findCompany(companyId);
+        company.updateProfile(
+            request.phone(), request.fax(), request.address(), request.bankName(), request.bankAccountHolder(),
+            request.bankAccountNumber() == null ? null : aesEncryptor.encrypt(request.bankAccountNumber())
+        );
+        return toProfileResponse(company);
+    }
+
+    private Company findCompany(UUID companyId) {
+        return companyRepository.findById(companyId)
+            .orElseThrow(() -> new EntityNotFoundException("업체", companyId));
+    }
+
+    private AuthDto.CompanyProfileResponse toProfileResponse(Company company) {
+        return new AuthDto.CompanyProfileResponse(
+            company.getId().toString(), company.getName(), company.getBusinessRegistrationNumber(), company.getRepresentativeName(),
+            company.getPhone(), company.getFax(), company.getAddress(), company.getBankName(), company.getBankAccountHolder(),
+            aesEncryptor.decrypt(company.getBankAccountNumber())
+        );
     }
 
     public void requestPasswordReset(String email) {

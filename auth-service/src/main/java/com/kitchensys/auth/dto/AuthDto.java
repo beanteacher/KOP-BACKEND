@@ -19,7 +19,12 @@ public class AuthDto {
         @NotBlank(message = "비밀번호는 필수입니다")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,72}$", message = "비밀번호는 8~72자, 영문+숫자 조합이어야 합니다")
         String password,
-        @Size(max = 15, message = "연락처는 15자를 넘을 수 없습니다") String phone
+        @Size(max = 15, message = "연락처는 15자를 넘을 수 없습니다") String phone,
+        @Size(max = 200, message = "주소는 200자를 넘을 수 없습니다") String address,
+        @Size(max = 15, message = "팩스번호는 15자를 넘을 수 없습니다") String fax,
+        @Size(max = 50, message = "은행명은 50자를 넘을 수 없습니다") String bankName,
+        @Size(max = 50, message = "예금주명은 50자를 넘을 수 없습니다") String bankAccountHolder,
+        @Size(max = 50, message = "계좌번호는 50자를 넘을 수 없습니다") String bankAccountNumber
     ) {}
 
     public record RegisterResponse(String companyId, String employeeId, String email, String plan) {
@@ -53,14 +58,44 @@ public class AuthDto {
 
     public record RefreshResponse(String accessToken) {}
 
-    public record MeResponse(String id, String name, String email, String role, String companyId, String companyName, String plan) {
+    /**
+     * businessRegistrationNumber·representativeName·phone·address는 인쇄용 영수증(ReceiptSlip) 헤더에
+     * 필요해서 여기 포함한다. 계좌정보(bankName 등)는 여기 넣지 않는다 — 모든 로그인 사용자(직원 포함)가
+     * 매 로드마다 받는 응답이라 회사 계좌번호까지 노출할 필요는 없다. 계좌정보는 관리자 전용
+     * CompanyProfileResponse(GET/PATCH /api/auth/company)로만 조회한다.
+     */
+    public record MeResponse(
+        String id, String name, String email, String role, String companyId, String companyName, String plan,
+        String businessRegistrationNumber, String representativeName, String phone, String address
+    ) {
         public static MeResponse from(Employee employee) {
+            Company company = employee.getCompany();
             return new MeResponse(
                 employee.getId().toString(), employee.getName(), employee.getEmail(), employee.getRole().name(),
-                employee.getCompanyId().toString(), employee.getCompany().getName(), employee.getCompany().getPlan().name()
+                employee.getCompanyId().toString(), company.getName(), company.getPlan().name(),
+                company.getBusinessRegistrationNumber(), company.getRepresentativeName(), company.getPhone(), company.getAddress()
             );
         }
     }
+
+    /** 관리자 전용 사업자 프로필 조회/수정 응답 (GET·PATCH /api/auth/company) — 계좌번호는 복호화된 평문. */
+    public record CompanyProfileResponse(
+        String id, String name, String businessRegistrationNumber, String representativeName, String phone,
+        String fax, String address, String bankName, String bankAccountHolder, String bankAccountNumber
+    ) {}
+
+    /**
+     * 전화·팩스·주소·계좌정보만 수정 가능 — 상호·사업자번호·대표자명은 이 엔드포인트로 바꾸지 않는다.
+     * EmployeeDto.UpdateRequest와 같은 규칙: null인 필드는 변경하지 않는다(빈 문자열 ""은 지우는 것으로 처리됨).
+     */
+    public record CompanyProfileUpdateRequest(
+        @Size(max = 15, message = "연락처는 15자를 넘을 수 없습니다") String phone,
+        @Size(max = 15, message = "팩스번호는 15자를 넘을 수 없습니다") String fax,
+        @Size(max = 200, message = "주소는 200자를 넘을 수 없습니다") String address,
+        @Size(max = 50, message = "은행명은 50자를 넘을 수 없습니다") String bankName,
+        @Size(max = 50, message = "예금주명은 50자를 넘을 수 없습니다") String bankAccountHolder,
+        @Size(max = 50, message = "계좌번호는 50자를 넘을 수 없습니다") String bankAccountNumber
+    ) {}
 
     public record VerifyEmailRequest(@NotBlank String token) {}
 

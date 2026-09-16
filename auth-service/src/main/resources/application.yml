@@ -44,6 +44,14 @@ jwt:
   access-token-ttl-minutes: 60
   refresh-token-ttl-days: 30
 
+# companies.bank_account_number 앱 레벨 암호화 키 — 09-security.md 예외 조항 참고.
+# salt는 hex 문자열이어야 한다(Spring Security Encryptors 요구사항).
+# 로컬 기본값일 뿐 — 운영은 08-deployment.md Secrets Manager에서 주입.
+app:
+  encryption:
+    secret: ${ENCRYPTION_SECRET:local-dev-only-change-me-0123456789abcdef}
+    salt: ${ENCRYPTION_SALT:d1b1d1e1f1a1b1c1d1e1f1a1b1c1d1e1}
+
 management:
   endpoints:
     web:

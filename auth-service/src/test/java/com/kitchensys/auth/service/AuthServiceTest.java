@@ -1,5 +1,6 @@
 package com.kitchensys.auth.service;
 
+import com.kitchensys.auth.crypto.AesEncryptor;
 import com.kitchensys.auth.domain.Company;
 import com.kitchensys.auth.domain.Employee;
 import com.kitchensys.auth.dto.AuthDto;
@@ -38,6 +39,7 @@ class AuthServiceTest {
     @Mock OneTimeTokenService oneTimeTokenService;
     @Mock EmailSender emailSender;
     @Mock AuthEventPublisher eventPublisher;
+    @Mock AesEncryptor aesEncryptor;
 
     @InjectMocks AuthService authService;
 
@@ -55,7 +57,10 @@ class AuthServiceTest {
 
     @Test
     void register_주방설비_업체와_관리자_계정을_함께_생성한다() {
-        var request = new AuthDto.RegisterRequest("삼진주방설비", "1234567890", "김대표", "admin@samjin.co.kr", "samjin1234", "010-1234-5678");
+        var request = new AuthDto.RegisterRequest(
+            "삼진주방설비", "1234567890", "김대표", "admin@samjin.co.kr", "samjin1234", "010-1234-5678",
+            null, null, null, null, null
+        );
         when(companyRepository.existsByBusinessRegistrationNumber(request.businessRegistrationNumber())).thenReturn(false);
         when(employeeRepository.existsByEmail(request.email())).thenReturn(false);
         when(companyRepository.save(any())).thenReturn(company);
@@ -73,7 +78,10 @@ class AuthServiceTest {
 
     @Test
     void register_사업자번호가_중복이면_CONFLICT를_던진다() {
-        var request = new AuthDto.RegisterRequest("삼진주방설비", "1234567890", "김대표", "admin@samjin.co.kr", "samjin1234", null);
+        var request = new AuthDto.RegisterRequest(
+            "삼진주방설비", "1234567890", "김대표", "admin@samjin.co.kr", "samjin1234", null,
+            null, null, null, null, null
+        );
         when(companyRepository.existsByBusinessRegistrationNumber(request.businessRegistrationNumber())).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(request))
@@ -81,6 +89,68 @@ class AuthServiceTest {
             .hasFieldOrPropertyWithValue("code", "BUSINESS_NUMBER_DUPLICATE");
 
         verifyNoInteractions(employeeRepository);
+    }
+
+    @Test
+    void register_선택_입력된_사업자_프로필도_함께_저장하고_계좌번호는_암호화한다() {
+        var request = new AuthDto.RegisterRequest(
+            "삼진주방설비", "1234567890", "김대표", "admin@samjin.co.kr", "samjin1234", "010-1234-5678",
+            "서울시 강남구 테헤란로 1", "02-1234-5678", "국민은행", "김대표", "110-222-333444"
+        );
+        when(companyRepository.existsByBusinessRegistrationNumber(request.businessRegistrationNumber())).thenReturn(false);
+        when(employeeRepository.existsByEmail(request.email())).thenReturn(false);
+        when(companyRepository.save(any())).thenReturn(company);
+        when(employeeRepository.save(any())).thenReturn(employee);
+        when(passwordEncoder.encode(request.password())).thenReturn("hashed");
+        when(oneTimeTokenService.issue(any(), any(), any())).thenReturn("verify-token");
+        when(aesEncryptor.encrypt("110-222-333444")).thenReturn("ENC(110-222-333444)");
+
+        authService.register(request);
+
+        assertThat(company.getAddress()).isEqualTo("서울시 강남구 테헤란로 1");
+        assertThat(company.getFax()).isEqualTo("02-1234-5678");
+        assertThat(company.getBankName()).isEqualTo("국민은행");
+        assertThat(company.getBankAccountHolder()).isEqualTo("김대표");
+        assertThat(company.getBankAccountNumber()).isEqualTo("ENC(110-222-333444)");
+    }
+
+    @Test
+    void me_회사_사업자정보를_함께_반환한다() {
+        when(employeeRepository.findById(employee.getId())).thenReturn(Optional.of(employee));
+
+        AuthDto.MeResponse response = authService.me(employee.getId());
+
+        assertThat(response.businessRegistrationNumber()).isEqualTo("1234567890");
+        assertThat(response.representativeName()).isEqualTo("김대표");
+        assertThat(response.phone()).isEqualTo("010-1234-5678");
+    }
+
+    @Test
+    void companyProfile_계좌번호를_복호화해서_반환한다() {
+        company.updateProfile(null, "02-1234-5678", "서울시 강남구", "국민은행", "김대표", "ENC(110-222-333444)");
+        when(companyRepository.findById(company.getId())).thenReturn(Optional.of(company));
+        when(aesEncryptor.decrypt("ENC(110-222-333444)")).thenReturn("110-222-333444");
+
+        AuthDto.CompanyProfileResponse response = authService.companyProfile(company.getId());
+
+        assertThat(response.address()).isEqualTo("서울시 강남구");
+        assertThat(response.bankAccountNumber()).isEqualTo("110-222-333444");
+    }
+
+    @Test
+    void updateCompanyProfile_null_필드는_기존값을_유지하고_계좌번호는_암호화해서_저장한다() {
+        company.updateProfile("010-0000-0000", "02-0000-0000", "기존주소", "기존은행", "기존예금주", "OLD_ENC");
+        when(companyRepository.findById(company.getId())).thenReturn(Optional.of(company));
+        when(aesEncryptor.encrypt("999-888-777666")).thenReturn("NEW_ENC");
+        when(aesEncryptor.decrypt("NEW_ENC")).thenReturn("999-888-777666");
+
+        var request = new AuthDto.CompanyProfileUpdateRequest(null, null, "새주소", null, null, "999-888-777666");
+        AuthDto.CompanyProfileResponse response = authService.updateCompanyProfile(company.getId(), request);
+
+        assertThat(company.getPhone()).isEqualTo("010-0000-0000");
+        assertThat(company.getFax()).isEqualTo("02-0000-0000");
+        assertThat(company.getAddress()).isEqualTo("새주소");
+        assertThat(response.bankAccountNumber()).isEqualTo("999-888-777666");
     }
 
     @Test
