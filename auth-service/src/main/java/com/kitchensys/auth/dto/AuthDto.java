@@ -32,7 +32,8 @@ public class AuthDto {
 
     public record LoginRequest(
         @NotBlank @Email @Size(max = 255) String email,
-        @NotBlank @Size(max = 72) String password
+        @NotBlank @Size(max = 72) String password,
+        boolean rememberMe
     ) {}
 
     public record LoginResponse(String accessToken, EmployeeSummary employee) {

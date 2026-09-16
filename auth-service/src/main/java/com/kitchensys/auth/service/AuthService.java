@@ -98,8 +98,8 @@ public class AuthService {
 
         employee.resetFailedLogin();
         String accessToken = jwtProvider.issueAccessToken(employee);
-        String refreshToken = refreshTokenService.issue(employee.getId());
-        return new LoginResult(AuthDto.LoginResponse.of(accessToken, employee), refreshToken);
+        String refreshToken = refreshTokenService.issue(employee.getId(), request.rememberMe());
+        return new LoginResult(AuthDto.LoginResponse.of(accessToken, employee), refreshToken, request.rememberMe());
     }
 
     private BusinessException invalidCredentials() {
@@ -108,16 +108,18 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public RefreshResult refresh(String refreshToken) {
-        UUID employeeId = refreshTokenService.resolve(refreshToken)
+        RefreshTokenService.ResolvedRefreshToken resolved = refreshTokenService.resolve(refreshToken)
             .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "세션이 만료되었습니다. 다시 로그인해주세요"));
-        Employee employee = employeeRepository.findById(employeeId)
-            .orElseThrow(() -> new EntityNotFoundException("직원", employeeId));
+        Employee employee = employeeRepository.findById(resolved.employeeId())
+            .orElseThrow(() -> new EntityNotFoundException("직원", resolved.employeeId()));
 
-        // 회전(rotate): 재발급마다 새 Refresh Token을 발급하고 기존 것은 폐기한다.
+        // 회전(rotate): 재발급마다 새 Refresh Token을 발급하고 기존 것은 폐기한다. remember는 최초
+        // 로그인 때의 선택을 그대로 이어받는다 — 그래야 컨트롤러가 재발급 쿠키의 Max-Age를 로그인
+        // 시점과 동일하게(지속 쿠키면 계속 지속, 세션 쿠키면 계속 세션) 유지할 수 있다.
         refreshTokenService.revoke(refreshToken);
-        String newRefreshToken = refreshTokenService.issue(employee.getId());
+        String newRefreshToken = refreshTokenService.issue(employee.getId(), resolved.remember());
         String accessToken = jwtProvider.issueAccessToken(employee);
-        return new RefreshResult(new AuthDto.RefreshResponse(accessToken), newRefreshToken);
+        return new RefreshResult(new AuthDto.RefreshResponse(accessToken), newRefreshToken, resolved.remember());
     }
 
     public void logout(String refreshToken) {
@@ -151,7 +153,7 @@ public class AuthService {
         refreshTokenService.revokeAllForEmployee(employeeId);
     }
 
-    public record LoginResult(AuthDto.LoginResponse body, String refreshToken) {}
+    public record LoginResult(AuthDto.LoginResponse body, String refreshToken, boolean rememberMe) {}
 
-    public record RefreshResult(AuthDto.RefreshResponse body, String refreshToken) {}
+    public record RefreshResult(AuthDto.RefreshResponse body, String refreshToken, boolean rememberMe) {}
 }

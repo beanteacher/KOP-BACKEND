@@ -85,7 +85,7 @@ class AuthServiceTest {
 
     @Test
     void login_비밀번호가_틀리면_실패카운트를_올리고_INVALID_CREDENTIALS를_던진다() {
-        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "wrong-password");
+        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "wrong-password", false);
         when(employeeRepository.findByEmail(request.email())).thenReturn(Optional.of(employee));
         when(passwordEncoder.matches(request.password(), employee.getPasswordHash())).thenReturn(false);
 
@@ -98,7 +98,7 @@ class AuthServiceTest {
 
     @Test
     void login_5회_연속_실패하면_잠긴다() {
-        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "wrong-password");
+        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "wrong-password", false);
         when(employeeRepository.findByEmail(request.email())).thenReturn(Optional.of(employee));
         when(passwordEncoder.matches(any(), any())).thenReturn(false);
 
@@ -114,7 +114,7 @@ class AuthServiceTest {
         for (int i = 0; i < 5; i++) {
             employee.recordFailedLogin();
         }
-        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "samjin1234");
+        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "samjin1234", false);
         when(employeeRepository.findByEmail(request.email())).thenReturn(Optional.of(employee));
 
         assertThatThrownBy(() -> authService.login(request))
@@ -124,18 +124,50 @@ class AuthServiceTest {
 
     @Test
     void login_성공하면_실패카운트가_초기화되고_토큰이_발급된다() {
-        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "samjin1234");
+        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "samjin1234", false);
         employee.recordFailedLogin();
         when(employeeRepository.findByEmail(request.email())).thenReturn(Optional.of(employee));
         when(passwordEncoder.matches(request.password(), employee.getPasswordHash())).thenReturn(true);
         when(jwtProvider.issueAccessToken(employee)).thenReturn("access-token");
-        when(refreshTokenService.issue(employee.getId())).thenReturn("refresh-token");
+        when(refreshTokenService.issue(employee.getId(), false)).thenReturn("refresh-token");
 
         AuthService.LoginResult result = authService.login(request);
 
         assertThat(result.body().accessToken()).isEqualTo("access-token");
         assertThat(result.refreshToken()).isEqualTo("refresh-token");
+        assertThat(result.rememberMe()).isFalse();
         assertThat(employee.getFailedLoginCount()).isEqualTo((short) 0);
+    }
+
+    @Test
+    void login_로그인상태유지를_체크하면_remember가_true인_토큰을_발급한다() {
+        var request = new AuthDto.LoginRequest("admin@samjin.co.kr", "samjin1234", true);
+        when(employeeRepository.findByEmail(request.email())).thenReturn(Optional.of(employee));
+        when(passwordEncoder.matches(request.password(), employee.getPasswordHash())).thenReturn(true);
+        when(jwtProvider.issueAccessToken(employee)).thenReturn("access-token");
+        when(refreshTokenService.issue(employee.getId(), true)).thenReturn("refresh-token");
+
+        AuthService.LoginResult result = authService.login(request);
+
+        assertThat(result.rememberMe()).isTrue();
+        verify(refreshTokenService).issue(employee.getId(), true);
+    }
+
+    @Test
+    void refresh_최초_로그인의_remember_선택을_재발급_토큰에도_그대로_이어간다() {
+        UUID employeeId = employee.getId();
+        when(refreshTokenService.resolve("old-token"))
+            .thenReturn(Optional.of(new RefreshTokenService.ResolvedRefreshToken(employeeId, true)));
+        when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
+        when(jwtProvider.issueAccessToken(employee)).thenReturn("new-access-token");
+        when(refreshTokenService.issue(employeeId, true)).thenReturn("new-refresh-token");
+
+        AuthService.RefreshResult result = authService.refresh("old-token");
+
+        assertThat(result.body().accessToken()).isEqualTo("new-access-token");
+        assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+        assertThat(result.rememberMe()).isTrue();
+        verify(refreshTokenService).revoke("old-token");
     }
 
     @Test

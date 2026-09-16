@@ -44,7 +44,7 @@ public class AuthController {
         @RequestBody @Valid AuthDto.LoginRequest request, HttpServletResponse response
     ) {
         AuthService.LoginResult result = authService.login(request);
-        setRefreshCookie(response, result.refreshToken());
+        setRefreshCookie(response, result.refreshToken(), result.rememberMe());
         return ResponseEntity.ok(ApiResponse.of(result.body()));
     }
 
@@ -53,7 +53,7 @@ public class AuthController {
         @CookieValue(value = REFRESH_COOKIE, required = false) String refreshToken, HttpServletResponse response
     ) {
         AuthService.RefreshResult result = authService.refresh(refreshToken);
-        setRefreshCookie(response, result.refreshToken());
+        setRefreshCookie(response, result.refreshToken(), result.rememberMe());
         return ResponseEntity.ok(ApiResponse.of(result.body()));
     }
 
@@ -85,10 +85,14 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.of(authService.me(UUID.fromString(principal.employeeId()))));
     }
 
-    private void setRefreshCookie(HttpServletResponse response, String token) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, token)
-            .httpOnly(true).secure(true).sameSite("Strict").path("/api/auth").maxAge(REFRESH_COOKIE_MAX_AGE).build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    /** remember가 false면 Max-Age를 아예 안 붙인다 — 브라우저가 세션 쿠키로 취급해 창을 닫으면 사라진다. */
+    private void setRefreshCookie(HttpServletResponse response, String token, boolean remember) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(REFRESH_COOKIE, token)
+            .httpOnly(true).secure(true).sameSite("Strict").path("/api/auth");
+        if (remember) {
+            builder.maxAge(REFRESH_COOKIE_MAX_AGE);
+        }
+        response.addHeader(HttpHeaders.SET_COOKIE, builder.build().toString());
     }
 
     private void clearRefreshCookie(HttpServletResponse response) {
