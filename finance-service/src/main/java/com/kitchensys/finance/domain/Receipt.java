@@ -105,7 +105,7 @@ public class Receipt {
         items.clear();
         int order = 0;
         for (ItemInput input : inputs) {
-            items.add(ReceiptItem.of(this, input.name(), input.quantity(), input.unitPrice(), order++));
+            items.add(ReceiptItem.of(this, input.name(), input.spec(), input.quantity(), input.unitPrice(), order++));
         }
         this.amount = items.stream().mapToLong(ReceiptItem::getAmount).sum();
     }
@@ -124,5 +124,5 @@ public class Receipt {
         return Duration.between(createdAt, now).compareTo(STAFF_EDIT_WINDOW) <= 0;
     }
 
-    public record ItemInput(String name, Integer quantity, Long unitPrice) {}
+    public record ItemInput(String name, String spec, Integer quantity, Long unitPrice) {}
 }

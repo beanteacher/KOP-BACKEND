@@ -28,6 +28,10 @@ public class ReceiptItem {
     @Column(nullable = false, length = 100)
     private String name;
 
+    /** 견적・납품서 인쇄 뷰의 규격 컬럼 — 선택 입력이라 값이 없는 기존 품목은 null. */
+    @Column(length = 100)
+    private String spec;
+
     @Column(nullable = false)
     private Integer quantity;
 
@@ -41,16 +45,17 @@ public class ReceiptItem {
     @Column(name = "sort_order", nullable = false)
     private short sortOrder;
 
-    private ReceiptItem(Receipt receipt, String name, Integer quantity, Long unitPrice, short sortOrder) {
+    private ReceiptItem(Receipt receipt, String name, String spec, Integer quantity, Long unitPrice, short sortOrder) {
         this.receipt = receipt;
         this.name = name;
+        this.spec = spec;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
         this.amount = unitPrice * quantity;
         this.sortOrder = sortOrder;
     }
 
-    static ReceiptItem of(Receipt receipt, String name, Integer quantity, Long unitPrice, int sortOrder) {
-        return new ReceiptItem(receipt, name, quantity, unitPrice, (short) sortOrder);
+    static ReceiptItem of(Receipt receipt, String name, String spec, Integer quantity, Long unitPrice, int sortOrder) {
+        return new ReceiptItem(receipt, name, spec, quantity, unitPrice, (short) sortOrder);
     }
 }

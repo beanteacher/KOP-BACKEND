@@ -22,6 +22,7 @@ public class ReceiptDto {
 
     public record ItemRequest(
         @NotBlank(message = "품목명은 필수입니다") @Size(max = 100, message = "품목명은 100자를 넘을 수 없습니다") String name,
+        @Size(max = 100, message = "규격은 100자를 넘을 수 없습니다") String spec,
         @NotNull(message = "수량은 필수입니다") @Positive(message = "수량은 0보다 커야 합니다") Integer quantity,
         @NotNull(message = "단가는 필수입니다") @Positive(message = "단가는 0보다 커야 합니다") Long unitPrice
     ) {}
@@ -44,9 +45,11 @@ public class ReceiptDto {
         @NotEmpty(message = "품목은 최소 1개 이상 등록해야 합니다") @Valid List<ItemRequest> items
     ) {}
 
-    public record ItemResponse(String id, String name, Integer quantity, Long unitPrice, Long amount) {
+    public record ItemResponse(String id, String name, String spec, Integer quantity, Long unitPrice, Long amount) {
         public static ItemResponse from(ReceiptItem item) {
-            return new ItemResponse(item.getId().toString(), item.getName(), item.getQuantity(), item.getUnitPrice(), item.getAmount());
+            return new ItemResponse(
+                item.getId().toString(), item.getName(), item.getSpec(), item.getQuantity(), item.getUnitPrice(), item.getAmount()
+            );
         }
     }
 

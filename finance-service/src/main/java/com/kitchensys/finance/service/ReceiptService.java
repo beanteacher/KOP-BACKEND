@@ -144,7 +144,7 @@ public class ReceiptService {
         if (items == null || items.isEmpty()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "품목은 최소 1개 이상 등록해야 합니다");
         }
-        return items.stream().map(i -> new Receipt.ItemInput(i.name(), i.quantity(), i.unitPrice())).toList();
+        return items.stream().map(i -> new Receipt.ItemInput(i.name(), i.spec(), i.quantity(), i.unitPrice())).toList();
     }
 
     public record ListResult(Page<Receipt> receipts, long totalAmount) {}

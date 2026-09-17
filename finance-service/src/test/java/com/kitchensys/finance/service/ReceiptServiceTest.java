@@ -49,14 +49,14 @@ class ReceiptServiceTest {
 
     private Receipt receiptOf(UUID createdBy, Instant createdAt) {
         Receipt receipt = Receipt.register(companyId, createdBy, LocalDate.now(), "한성식자재", null, ReceiptCategory.MATERIAL, null);
-        receipt.replaceItems(List.of(new Receipt.ItemInput("돼지고기", 1, 10000L)));
+        receipt.replaceItems(List.of(new Receipt.ItemInput("돼지고기", null, 1, 10000L)));
         ReflectionTestUtils.setField(receipt, "id", UUID.randomUUID());
         ReflectionTestUtils.setField(receipt, "createdAt", createdAt);
         return receipt;
     }
 
     private ReceiptDto.ItemRequest item(String name, int quantity, long unitPrice) {
-        return new ReceiptDto.ItemRequest(name, quantity, unitPrice);
+        return new ReceiptDto.ItemRequest(name, null, quantity, unitPrice);
     }
 
     /**
@@ -98,6 +98,31 @@ class ReceiptServiceTest {
         assertThat(response.items()).hasSize(2);
         assertThat(response.items().get(0).amount()).isEqualTo(80_000L);
         assertThat(response.items().get(1).amount()).isEqualTo(5_000L);
+    }
+
+    @Test
+    void register_품목에_규격을_입력하면_그대로_저장된다() {
+        var request = new ReceiptDto.RegisterRequest(
+            LocalDate.now(), "한성식자재", null, "MATERIAL", null,
+            List.of(new ReceiptDto.ItemRequest("스텐 작업대", "900*700*850", 1, 300_000L))
+        );
+        when(receiptRepository.countInPeriod(eq(companyId), any(), any())).thenReturn(0L);
+        stubSaveAndFlush();
+
+        ReceiptDto.Response response = receiptService.register(staff, request);
+
+        assertThat(response.items().get(0).spec()).isEqualTo("900*700*850");
+    }
+
+    @Test
+    void register_규격을_입력하지_않으면_null로_저장된다() {
+        var request = new ReceiptDto.RegisterRequest(LocalDate.now(), "한성식자재", null, "MATERIAL", null, List.of(item("고기", 1, 85000L)));
+        when(receiptRepository.countInPeriod(eq(companyId), any(), any())).thenReturn(0L);
+        stubSaveAndFlush();
+
+        ReceiptDto.Response response = receiptService.register(staff, request);
+
+        assertThat(response.items().get(0).spec()).isNull();
     }
 
     @Test
