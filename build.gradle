@@ -5,7 +5,7 @@ plugins {
 }
 
 allprojects {
-    group = 'com.kitchensys'
+    group = 'com.kop'
     version = '0.0.1-SNAPSHOT'
     repositories { mavenCentral() }
 }

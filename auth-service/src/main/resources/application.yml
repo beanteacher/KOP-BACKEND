@@ -6,9 +6,9 @@ spring:
     name: auth-service
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/kitchensys}
-    username: ${DB_USERNAME:kitchensys}
-    password: ${DB_PASSWORD:kitchensys}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/kop}
+    username: ${DB_USERNAME:kop}
+    password: ${DB_PASSWORD:kop}
     hikari:
       schema: auth
 
