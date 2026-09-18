@@ -51,8 +51,14 @@ public class Receipt {
     private UUID clientId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ReceiptCategory category;
+    @Column(name = "payment_status", nullable = false, length = 20)
+    private PaymentStatus paymentStatus;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    @Column(name = "matched_transaction_id")
+    private UUID matchedTransactionId;
 
     @Column(length = 200)
     private String memo;
@@ -72,28 +78,27 @@ public class Receipt {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    private Receipt(UUID companyId, UUID createdBy, LocalDate receiptDate, String vendorName, UUID clientId, ReceiptCategory category, String memo) {
+    private Receipt(UUID companyId, UUID createdBy, LocalDate receiptDate, String vendorName, UUID clientId, String memo) {
         this.companyId = companyId;
         this.createdBy = createdBy;
         this.receiptDate = receiptDate;
         this.amount = 0L;
         this.vendorName = vendorName;
         this.clientId = clientId;
-        this.category = category;
+        this.paymentStatus = PaymentStatus.PENDING;
         this.memo = memo;
     }
 
     /** A-1 영수증 등록 — 품목은 register() 직후 {@link #replaceItems}로 채운다. */
-    public static Receipt register(UUID companyId, UUID createdBy, LocalDate receiptDate, String vendorName, UUID clientId, ReceiptCategory category, String memo) {
-        return new Receipt(companyId, createdBy, receiptDate, vendorName, clientId, category, memo);
+    public static Receipt register(UUID companyId, UUID createdBy, LocalDate receiptDate, String vendorName, UUID clientId, String memo) {
+        return new Receipt(companyId, createdBy, receiptDate, vendorName, clientId, memo);
     }
 
     /** A-3 영수증 수정 — 품목을 제외한 필드 전체 교체. */
-    public void update(LocalDate receiptDate, String vendorName, UUID clientId, ReceiptCategory category, String memo) {
+    public void update(LocalDate receiptDate, String vendorName, UUID clientId, String memo) {
         this.receiptDate = receiptDate;
         this.vendorName = vendorName;
         this.clientId = clientId;
-        this.category = category;
         this.memo = memo;
     }
 
@@ -113,6 +118,22 @@ public class Receipt {
     /** A-3 소프트 삭제. */
     public void softDelete() {
         this.deletedAt = Instant.now();
+    }
+
+    /** 입금 확인 — 상태 전이 가능 여부는 호출 측(Service)이 미리 검사한다. */
+    public void markPaid(UUID matchedTransactionId) {
+        this.paymentStatus = PaymentStatus.PAID;
+        this.paidAt = Instant.now();
+        this.matchedTransactionId = matchedTransactionId;
+    }
+
+    /** 영수증 취소 — 상태 전이 가능 여부는 호출 측(Service)이 미리 검사한다. */
+    public void cancel() {
+        this.paymentStatus = PaymentStatus.CANCELED;
+    }
+
+    public boolean isPending() {
+        return paymentStatus == PaymentStatus.PENDING;
     }
 
     public boolean isOwnedBy(UUID employeeId) {

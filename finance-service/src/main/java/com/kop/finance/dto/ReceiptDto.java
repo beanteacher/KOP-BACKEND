@@ -11,10 +11,8 @@ import java.util.List;
 
 /**
  * 06-api-design.md Finance API — 영수증. backend-conventions.md DTO 규칙 — 도메인당 파일 하나에
- * inner record. category는 enum 타입 대신 String으로 받는다 — @RequestBody가 잘못된 값을 만나면
- * Jackson이 곧장 HttpMessageNotReadableException을 던지는데, GlobalExceptionHandler는 이걸
- * VALIDATION_ERROR로 개별 처리하지 않아 catch-all(500)로 떨어진다(auth-service refresh 500
- * 버그와 같은 종류). Service에서 유효성 검사 후 enum으로 변환해 BusinessException(400)으로 던진다.
+ * inner record. paymentStatus는 클라이언트 입력이 아니다 — 등록 시 항상 PENDING으로 시작하고,
+ * 이후 전이는 /mark-paid, /cancel 전용 엔드포인트로만 이뤄진다(상태 전이 규칙 위반 방지).
  *
  * amount는 요청에 없다 — items(품목명·수량·단가) 합계를 서버가 계산해 저장한다(05-database-schema.md).
  */
@@ -31,7 +29,6 @@ public class ReceiptDto {
         @NotNull(message = "발행일은 필수입니다") @PastOrPresent(message = "미래 날짜는 등록할 수 없습니다") LocalDate receiptDate,
         @NotBlank(message = "거래처는 필수입니다") @Size(max = 100, message = "거래처명은 100자를 넘을 수 없습니다") String vendorName,
         String clientId,
-        @NotBlank(message = "항목 분류는 필수입니다") String category,
         @Size(max = 200, message = "메모는 200자를 넘을 수 없습니다") String memo,
         @NotEmpty(message = "품목은 최소 1개 이상 등록해야 합니다") @Valid List<ItemRequest> items
     ) {}
@@ -40,10 +37,12 @@ public class ReceiptDto {
         @NotNull(message = "발행일은 필수입니다") @PastOrPresent(message = "미래 날짜는 등록할 수 없습니다") LocalDate receiptDate,
         @NotBlank(message = "거래처는 필수입니다") @Size(max = 100, message = "거래처명은 100자를 넘을 수 없습니다") String vendorName,
         String clientId,
-        @NotBlank(message = "항목 분류는 필수입니다") String category,
         @Size(max = 200, message = "메모는 200자를 넘을 수 없습니다") String memo,
         @NotEmpty(message = "품목은 최소 1개 이상 등록해야 합니다") @Valid List<ItemRequest> items
     ) {}
+
+    /** transactionId는 오픈뱅킹 입금 매칭 결과를 관리자가 수동으로 지정할 때만 사용 — 없으면 null. */
+    public record MarkPaidRequest(String transactionId) {}
 
     public record ItemResponse(String id, String name, String spec, Integer quantity, Long unitPrice, Long amount) {
         public static ItemResponse from(ReceiptItem item) {
@@ -55,22 +54,22 @@ public class ReceiptDto {
 
     public record Response(
         String id, LocalDate receiptDate, Long amount, String vendorName,
-        String clientId, String category, String memo, List<ItemResponse> items, String createdBy, Instant createdAt
+        String clientId, String paymentStatus, Instant paidAt, String memo, List<ItemResponse> items, String createdBy, Instant createdAt
     ) {
         public static Response from(Receipt r) {
             return new Response(
                 r.getId().toString(), r.getReceiptDate(), r.getAmount(), r.getVendorName(),
                 r.getClientId() == null ? null : r.getClientId().toString(),
-                r.getCategory().name(), r.getMemo(),
+                r.getPaymentStatus().name(), r.getPaidAt(), r.getMemo(),
                 r.getItems().stream().map(ItemResponse::from).toList(),
                 r.getCreatedBy().toString(), r.getCreatedAt()
             );
         }
     }
 
-    public record ListItem(String id, LocalDate receiptDate, Long amount, String vendorName, String category) {
+    public record ListItem(String id, LocalDate receiptDate, Long amount, String vendorName, String paymentStatus) {
         public static ListItem from(Receipt r) {
-            return new ListItem(r.getId().toString(), r.getReceiptDate(), r.getAmount(), r.getVendorName(), r.getCategory().name());
+            return new ListItem(r.getId().toString(), r.getReceiptDate(), r.getAmount(), r.getVendorName(), r.getPaymentStatus().name());
         }
     }
 }

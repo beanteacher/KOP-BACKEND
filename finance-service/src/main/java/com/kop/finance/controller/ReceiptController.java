@@ -39,7 +39,7 @@ public class ReceiptController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @RequestParam(required = false) String clientId,
-        @RequestParam(required = false) String category,
+        @RequestParam(required = false) String paymentStatus,
         @RequestParam(required = false) String createdBy,
         @RequestParam(required = false) String vendorName,
         @RequestParam(defaultValue = "1") int page,
@@ -51,7 +51,7 @@ public class ReceiptController {
         LocalDate effectiveTo = to != null ? to : today;
 
         ReceiptService.ListResult result = receiptService.list(
-            principal, effectiveFrom, effectiveTo, clientId, category, createdBy, vendorName, PageRequest.of(page - 1, size)
+            principal, effectiveFrom, effectiveTo, clientId, paymentStatus, createdBy, vendorName, PageRequest.of(page - 1, size)
         );
         Page<ReceiptDto.ListItem> items = result.receipts().map(ReceiptDto.ListItem::from);
         return ResponseEntity.ok(ApiResponse.of(items.getContent(), PageMeta.from(items, result.totalAmount())));
@@ -75,5 +75,20 @@ public class ReceiptController {
     public ResponseEntity<ApiResponse<Void>> delete(@AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id) {
         receiptService.delete(principal, id);
         return ResponseEntity.ok(ApiResponse.of(null));
+    }
+
+    @PostMapping("/{id}/mark-paid")
+    public ResponseEntity<ApiResponse<ReceiptDto.Response>> markPaid(
+        @AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id,
+        @RequestBody(required = false) ReceiptDto.MarkPaidRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.of(receiptService.markPaid(principal, id, request)));
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<ReceiptDto.Response>> cancel(
+        @AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(ApiResponse.of(receiptService.cancel(principal, id)));
     }
 }

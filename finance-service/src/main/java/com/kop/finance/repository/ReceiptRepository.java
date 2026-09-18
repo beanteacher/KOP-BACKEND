@@ -1,7 +1,7 @@
 package com.kop.finance.repository;
 
+import com.kop.finance.domain.PaymentStatus;
 import com.kop.finance.domain.Receipt;
-import com.kop.finance.domain.ReceiptCategory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,14 +33,14 @@ public interface ReceiptRepository extends JpaRepository<Receipt, UUID> {
           and r.deletedAt is null
           and r.receiptDate between :from and :to
           and (:clientId is null or r.clientId = :clientId)
-          and (:category is null or r.category = :category)
+          and (:paymentStatus is null or r.paymentStatus = :paymentStatus)
           and (:createdBy is null or r.createdBy = :createdBy)
           and (:vendorName is null or lower(r.vendorName) like lower(concat('%', cast(:vendorName as string), '%')))
         order by r.receiptDate desc, r.createdAt desc
         """)
     Page<Receipt> search(
         @Param("companyId") UUID companyId, @Param("from") LocalDate from, @Param("to") LocalDate to,
-        @Param("clientId") UUID clientId, @Param("category") ReceiptCategory category, @Param("createdBy") UUID createdBy,
+        @Param("clientId") UUID clientId, @Param("paymentStatus") PaymentStatus paymentStatus, @Param("createdBy") UUID createdBy,
         @Param("vendorName") String vendorName, Pageable pageable
     );
 
@@ -50,13 +50,13 @@ public interface ReceiptRepository extends JpaRepository<Receipt, UUID> {
           and r.deletedAt is null
           and r.receiptDate between :from and :to
           and (:clientId is null or r.clientId = :clientId)
-          and (:category is null or r.category = :category)
+          and (:paymentStatus is null or r.paymentStatus = :paymentStatus)
           and (:createdBy is null or r.createdBy = :createdBy)
           and (:vendorName is null or lower(r.vendorName) like lower(concat('%', cast(:vendorName as string), '%')))
         """)
     long sumAmount(
         @Param("companyId") UUID companyId, @Param("from") LocalDate from, @Param("to") LocalDate to,
-        @Param("clientId") UUID clientId, @Param("category") ReceiptCategory category, @Param("createdBy") UUID createdBy,
+        @Param("clientId") UUID clientId, @Param("paymentStatus") PaymentStatus paymentStatus, @Param("createdBy") UUID createdBy,
         @Param("vendorName") String vendorName
     );
 }

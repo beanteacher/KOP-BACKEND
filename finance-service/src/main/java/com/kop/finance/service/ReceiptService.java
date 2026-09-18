@@ -2,8 +2,8 @@ package com.kop.finance.service;
 
 import com.kop.common.exception.BusinessException;
 import com.kop.common.exception.EntityNotFoundException;
+import com.kop.finance.domain.PaymentStatus;
 import com.kop.finance.domain.Receipt;
-import com.kop.finance.domain.ReceiptCategory;
 import com.kop.finance.dto.ReceiptDto;
 import com.kop.finance.repository.ReceiptRepository;
 import com.kop.finance.security.EmployeePrincipal;
@@ -43,12 +43,11 @@ public class ReceiptService {
             }
         }
 
-        ReceiptCategory category = parseCategory(request.category());
         UUID clientId = parseUuidOrNull(request.clientId());
 
         Receipt receipt = Receipt.register(
             companyId, UUID.fromString(principal.employeeId()), request.receiptDate(),
-            request.vendorName(), clientId, category, request.memo()
+            request.vendorName(), clientId, request.memo()
         );
         receipt.replaceItems(toItemInputs(request.items()));
         // saveAndFlush — @CreationTimestamp(createdAt)는 INSERT 시점(flush)에 채워진다.
@@ -59,16 +58,16 @@ public class ReceiptService {
     @Transactional(readOnly = true)
     public ListResult list(
         EmployeePrincipal principal, LocalDate from, LocalDate to,
-        String clientIdParam, String categoryParam, String createdByParam, String vendorName, Pageable pageable
+        String clientIdParam, String paymentStatusParam, String createdByParam, String vendorName, Pageable pageable
     ) {
         UUID companyId = UUID.fromString(principal.companyId());
         UUID clientId = parseUuidOrNull(clientIdParam);
-        ReceiptCategory category = categoryParam == null ? null : parseCategory(categoryParam);
+        PaymentStatus paymentStatus = paymentStatusParam == null ? null : parsePaymentStatus(paymentStatusParam);
         UUID createdBy = principal.isAdmin() ? parseUuidOrNull(createdByParam) : UUID.fromString(principal.employeeId());
         String vendorNameFilter = (vendorName == null || vendorName.isBlank()) ? null : vendorName.trim();
 
-        Page<Receipt> page = receiptRepository.search(companyId, from, to, clientId, category, createdBy, vendorNameFilter, pageable);
-        long totalAmount = receiptRepository.sumAmount(companyId, from, to, clientId, category, createdBy, vendorNameFilter);
+        Page<Receipt> page = receiptRepository.search(companyId, from, to, clientId, paymentStatus, createdBy, vendorNameFilter, pageable);
+        long totalAmount = receiptRepository.sumAmount(companyId, from, to, clientId, paymentStatus, createdBy, vendorNameFilter);
         return new ListResult(page, totalAmount);
     }
 
@@ -83,10 +82,10 @@ public class ReceiptService {
     public ReceiptDto.Response update(EmployeePrincipal principal, UUID id, ReceiptDto.UpdateRequest request) {
         Receipt receipt = findOwned(principal, id);
         assertEditable(principal, receipt);
+        assertPending(receipt);
 
-        ReceiptCategory category = parseCategory(request.category());
         UUID clientId = parseUuidOrNull(request.clientId());
-        receipt.update(request.receiptDate(), request.vendorName(), clientId, category, request.memo());
+        receipt.update(request.receiptDate(), request.vendorName(), clientId, request.memo());
         receipt.replaceItems(toItemInputs(request.items()));
         // saveAndFlush — 새로 추가된 품목의 id(@GeneratedValue)는 cascade PERSIST가 실제로
         // 나가는 flush 시점에 채워진다. register()의 createdAt과 같은 이유로 flush를 강제한다.
@@ -97,7 +96,35 @@ public class ReceiptService {
     public void delete(EmployeePrincipal principal, UUID id) {
         Receipt receipt = findOwned(principal, id);
         assertEditable(principal, receipt);
+        assertPending(receipt);
         receipt.softDelete();
+    }
+
+    /** 관리자 전용 — PENDING 영수증의 입금을 확인해 PAID로 전이한다. */
+    @Transactional
+    public ReceiptDto.Response markPaid(EmployeePrincipal principal, UUID id, ReceiptDto.MarkPaidRequest request) {
+        if (!principal.isAdmin()) {
+            throw forbidden();
+        }
+        Receipt receipt = findOwned(principal, id);
+        assertPending(receipt);
+
+        UUID transactionId = request == null ? null : parseUuidOrNull(request.transactionId());
+        receipt.markPaid(transactionId);
+        return ReceiptDto.Response.from(receipt);
+    }
+
+    /** 관리자 전용 — PENDING 영수증을 취소한다. */
+    @Transactional
+    public ReceiptDto.Response cancel(EmployeePrincipal principal, UUID id) {
+        if (!principal.isAdmin()) {
+            throw forbidden();
+        }
+        Receipt receipt = findOwned(principal, id);
+        assertPending(receipt);
+
+        receipt.cancel();
+        return ReceiptDto.Response.from(receipt);
     }
 
     private Receipt findOwned(EmployeePrincipal principal, UUID id) {
@@ -127,11 +154,18 @@ public class ReceiptService {
         return new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "이 작업을 수행할 권한이 없습니다");
     }
 
-    private ReceiptCategory parseCategory(String value) {
+    /** mark-paid/cancel/update/delete 공통 전이 가드 — PENDING이 아니면 더 이상 상태를 바꿀 수 없다. */
+    private void assertPending(Receipt receipt) {
+        if (!receipt.isPending()) {
+            throw new BusinessException(HttpStatus.CONFLICT, "RECEIPT_NOT_PENDING", "입금 대기(PENDING) 상태인 영수증만 처리할 수 있습니다");
+        }
+    }
+
+    private PaymentStatus parsePaymentStatus(String value) {
         try {
-            return ReceiptCategory.valueOf(value);
+            return PaymentStatus.valueOf(value);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "지원하지 않는 항목 분류입니다: " + value);
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "지원하지 않는 입금 상태입니다: " + value);
         }
     }
 
