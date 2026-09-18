@@ -1,4 +1,4 @@
-package com.kop.auth.crypto;
+package com.kop.common.crypto;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.encrypt.Encryptors;
@@ -10,8 +10,9 @@ import org.springframework.stereotype.Component;
  * DB 관리자 계정 탈취)에서도 평문 노출을 막아야 하는 필드에만 쓰는 앱 레벨 AES-256 암호화다.
  * RDS 스토리지 암호화(SSE-KMS, 09-security.md 저장 시 암호화 절)와는 별개의 방어선이며,
  * 이 필드들은 검색·인덱싱 대상이 아니므로 컬럼 암호화의 단점(등호 검색 불가)이 문제되지 않는다.
- * 새 라이브러리 의존성 없이 spring-boot-starter-security가 가져오는 spring-security-crypto만 쓴다.
- * 현재는 auth-service의 계좌번호에만 쓰여 auth-service 안에 둔다 — 다른 서비스가 필요해지면 그때 common으로 옮긴다.
+ * 새 라이브러리 의존성 없이 spring-security-crypto만 쓴다. 원래 auth-service 안에 있었으나
+ * finance-service의 bank_accounts(access_token/refresh_token/fintech_use_num)도 필요해져
+ * common으로 옮겼다 — 서비스마다 secret/salt는 각자 값을 쓰므로 암호문은 서비스 간에 공유되지 않는다.
  */
 @Component
 public class AesEncryptor {

@@ -1,6 +1,5 @@
 package com.kop.auth.service;
 
-import com.kop.auth.crypto.AesEncryptor;
 import com.kop.auth.domain.Company;
 import com.kop.auth.domain.Employee;
 import com.kop.auth.dto.AuthDto;
@@ -10,6 +9,7 @@ import com.kop.auth.repository.EmployeeRepository;
 import com.kop.auth.security.JwtProvider;
 import com.kop.auth.security.OneTimeTokenService;
 import com.kop.auth.security.RefreshTokenService;
+import com.kop.common.crypto.AesEncryptor;
 import com.kop.common.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
