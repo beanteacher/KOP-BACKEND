@@ -32,6 +32,10 @@ spring:
           uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
           predicates:
             - Path=/api/exports/**
+        - id: finance-service-bank-accounts
+          uri: ${FINANCE_SERVICE_URI:http://localhost:3002}
+          predicates:
+            - Path=/api/bank-accounts/**
         - id: drawing-service
           uri: ${DRAWING_SERVICE_URI:http://localhost:3003}
           predicates:

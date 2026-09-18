@@ -82,4 +82,17 @@ public class BankAccount {
         this.refreshToken = encryptedRefreshToken;
         this.tokenExpiresAt = tokenExpiresAt;
     }
+
+    /** 이미 연결된 회사가 계좌를 다시 연결(재인증) — 은행/계좌가 바뀌었을 수 있어 전체 필드를 교체한다. */
+    public void reconnect(
+        String bankName, String accountNumberMasked,
+        String encryptedFintechUseNum, String encryptedAccessToken, String encryptedRefreshToken, Instant tokenExpiresAt
+    ) {
+        this.bankName = bankName;
+        this.accountNumberMasked = accountNumberMasked;
+        this.fintechUseNum = encryptedFintechUseNum;
+        this.accessToken = encryptedAccessToken;
+        this.refreshToken = encryptedRefreshToken;
+        this.tokenExpiresAt = tokenExpiresAt;
+    }
 }
