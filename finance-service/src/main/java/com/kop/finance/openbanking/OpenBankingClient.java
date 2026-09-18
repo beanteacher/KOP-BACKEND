@@ -46,7 +46,12 @@ public class OpenBankingClient {
         this.redirectUri = redirectUri;
     }
 
-    /** 사용자를 은행 인증 화면으로 보낼 URL. state는 호출자(OpenBankingStateSigner)가 서명해 넘긴다. */
+    /**
+     * 사용자를 은행 인증 화면으로 보낼 URL. state는 호출자(OpenBankingStateSigner)가 서명해 넘긴다.
+     * .encode()가 꼭 필요하다 — 안 하면 redirect_uri의 "http://..." 같은 값의 콜론/슬래시가
+     * percent-encoding 없이 그대로 들어가 오픈뱅킹 서버가 파라미터를 제대로 못 읽는다(실제로
+     * 테스트베드에서 O0001/3000103 "필수 파라미터 값이 존재하지 않을 때" 오류로 재현 확인함).
+     */
     public String buildAuthorizeUrl(String state) {
         return UriComponentsBuilder.fromUriString(baseUrl)
             .path("/oauth/2.0/authorize")
@@ -56,6 +61,7 @@ public class OpenBankingClient {
             .queryParam("scope", SCOPE)
             .queryParam("state", state)
             .queryParam("auth_type", "0")
+            .encode()
             .build()
             .toUriString();
     }

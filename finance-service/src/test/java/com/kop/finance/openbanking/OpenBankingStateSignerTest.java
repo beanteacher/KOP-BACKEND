@@ -4,14 +4,25 @@ import com.kop.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OpenBankingStateSignerTest {
 
-    OpenBankingStateSigner signer = new OpenBankingStateSigner("local-dev-only-change-me-0123456789abcdef");
+    OpenBankingStateSigner signer = new OpenBankingStateSigner();
+
+    @Test
+    void issue한_state는_32자다() {
+        // 오픈뱅킹 API 명세서 — state는 "32-byte fixed random string"이어야 한다.
+        String state = signer.issue(UUID.randomUUID());
+
+        assertThat(state).hasSize(32);
+    }
 
     @Test
     void issue한_state는_같은_companyId로_verify를_통과한다() {
@@ -31,19 +42,20 @@ class OpenBankingStateSignerTest {
     }
 
     @Test
-    void 위조된_state는_예외를_던진다() {
+    void 같은_state를_두_번_verify하면_두_번째는_예외를_던진다() {
+        // 1회용 — code와 마찬가지로 재사용을 막는다.
         UUID companyId = UUID.randomUUID();
         String state = signer.issue(companyId);
-        String tampered = state.substring(0, state.length() - 1) + (state.endsWith("A") ? "B" : "A");
+        signer.verify(state, companyId);
 
-        assertThatThrownBy(() -> signer.verify(tampered, companyId))
+        assertThatThrownBy(() -> signer.verify(state, companyId))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("code", "OPENBANKING_STATE_INVALID");
     }
 
     @Test
-    void 형식이_이상한_state는_예외를_던진다() {
-        assertThatThrownBy(() -> signer.verify("not-a-valid-state", UUID.randomUUID()))
+    void 발급한_적_없는_state는_예외를_던진다() {
+        assertThatThrownBy(() -> signer.verify("never-issued-state-1234567890ab", UUID.randomUUID()))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("code", "OPENBANKING_STATE_INVALID");
     }
@@ -56,15 +68,22 @@ class OpenBankingStateSignerTest {
     }
 
     @Test
-    void 만료된_state는_예외를_던진다() {
+    @SuppressWarnings("unchecked")
+    void 만료된_state는_예외를_던진다() throws Exception {
         UUID companyId = UUID.randomUUID();
-        String expiredPayload = companyId + "|" + (java.time.Instant.now().getEpochSecond() - 10);
-        String encoded = java.util.Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(expiredPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        String signature = (String) ReflectionTestUtils.invokeMethod(signer, "sign", expiredPayload);
-        String expiredState = encoded + "." + signature;
+        String state = signer.issue(companyId);
 
-        assertThatThrownBy(() -> signer.verify(expiredState, companyId))
+        // PendingState는 record라 필드가 final이라 reflection으로 값을 바꿔치기할 수 없다 —
+        // 만료된 값을 담은 인스턴스를 새로 만들어 맵 항목을 통째로 교체한다.
+        Class<?> pendingStateClass = Class.forName(OpenBankingStateSigner.class.getName() + "$PendingState");
+        var constructor = pendingStateClass.getDeclaredConstructor(UUID.class, long.class);
+        constructor.setAccessible(true);
+        Object expiredEntry = constructor.newInstance(companyId, Instant.now().getEpochSecond() - 10);
+
+        Map<String, Object> pending = (Map<String, Object>) ReflectionTestUtils.getField(signer, "pending");
+        pending.put(state, expiredEntry);
+
+        assertThatThrownBy(() -> signer.verify(state, companyId))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("code", "OPENBANKING_STATE_INVALID");
     }
