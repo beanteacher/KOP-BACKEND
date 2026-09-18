@@ -1,5 +1,11 @@
 apply plugin: 'org.springframework.boot'
 
+dependencyManagement {
+    imports {
+        mavenBom 'software.amazon.awssdk:bom:2.46.7'
+    }
+}
+
 dependencies {
     implementation project(':common')
 
@@ -18,6 +24,13 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
+
+    // 08-deployment.md 운영 메일 발송(AWS SES) — SesEmailSender.
+    implementation 'software.amazon.awssdk:ses'
+
+    // 로컬 개발 전용 — auth-service/.env(gitignore 처리됨)로 AWS_SES_REGION/EMAIL_FROM_ADDRESS/
+    // EMAIL_PROVIDER 등을 관리한다. finance-service와 같은 패턴(운영은 Secrets Manager).
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
