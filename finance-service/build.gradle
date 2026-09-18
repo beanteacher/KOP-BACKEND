@@ -16,5 +16,10 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
+    // 로컬 개발 전용 — finance-service/.env(gitignore 처리됨)를 읽어 OPENBANKING_CLIENT_ID 등을
+    // 일반 환경변수처럼 주입한다. 운영은 여전히 08-deployment.md Secrets Manager로 주입되고,
+    // .env 파일이 없으면 이 라이브러리는 조용히 아무 일도 하지 않는다.
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
     testImplementation 'org.springframework.security:spring-security-test'
 }

@@ -42,7 +42,7 @@ app:
 # 금융결제원 오픈뱅킹 — 이용기관 등록(심사) 전까지는 MockBankTransactionGateway만 쓰므로 여기
 # 값들은 아직 어떤 코드에서도 읽지 않는다. 실제 HTTP 클라이언트 구현체를 붙일 때 쓸 자리를
 # 미리 마련해둔 것 — developers.openbanking.or.kr 테스트베드에서 Client ID/Secret 발급 후
-# 셸 환경변수로 주입한다(이 레포는 .env 파일을 쓰지 않는다).
+# finance-service/.env(gitignore 처리, spring-dotenv가 읽음)에 채워 넣는다.
 openbanking:
   base-url: ${OPENBANKING_BASE_URL:https://testapi.openbanking.or.kr}
   client-id: ${OPENBANKING_CLIENT_ID:}
