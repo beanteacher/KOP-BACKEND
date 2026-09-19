@@ -133,14 +133,27 @@ public class TaxInvoice {
         return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, revisedFromId, null);
     }
 
-    /** 등록·수정 양쪽에서 품목 전체를 교체하고 공급가액·세액·합계를 다시 계산한다. */
+    /** 등록·수정 양쪽에서 품목 전체를 교체하고 공급가액·세액·합계를 다시 계산한다. unitPrice는 부가세 별도(세전) 단가. */
     public void replaceItems(List<ItemInput> inputs) {
+        applyItems(inputs, TaxInvoiceItem::of);
+    }
+
+    /**
+     * TaxInvoiceAutoIssuanceService 전용 — 부가세를 별도로 못 받은 거래처(간이과세자/면세/비영리)의
+     * 영수증에서 자동발행할 때 쓴다. unitPrice × quantity 자체가 이미 실제로 받은 최종 금액이라고
+     * 보고 거꾸로 공급가액·세액을 나눈다({@link TaxInvoiceItem#ofInclusive}).
+     */
+    public void replaceItemsInclusive(List<ItemInput> inputs) {
+        applyItems(inputs, TaxInvoiceItem::ofInclusive);
+    }
+
+    private void applyItems(List<ItemInput> inputs, ItemFactory factory) {
         items.clear();
         int order = 0;
         long supplySum = 0;
         long taxSum = 0;
         for (ItemInput input : inputs) {
-            TaxInvoiceItem item = TaxInvoiceItem.of(this, input.name(), input.spec(), input.quantity(), input.unitPrice(), order++);
+            TaxInvoiceItem item = factory.create(this, input.name(), input.spec(), input.quantity(), input.unitPrice(), order++);
             items.add(item);
             supplySum += item.getSupplyAmount();
             taxSum += item.getTaxAmount();
@@ -148,6 +161,11 @@ public class TaxInvoice {
         this.supplyAmount = supplySum;
         this.taxAmount = taxSum;
         this.totalAmount = supplySum + taxSum;
+    }
+
+    @FunctionalInterface
+    private interface ItemFactory {
+        TaxInvoiceItem create(TaxInvoice taxInvoice, String name, String spec, Integer quantity, Long unitPrice, int sortOrder);
     }
 
     public boolean isDraft() {

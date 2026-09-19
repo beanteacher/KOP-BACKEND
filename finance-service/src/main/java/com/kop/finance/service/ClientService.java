@@ -4,6 +4,7 @@ import com.kop.common.exception.BusinessException;
 import com.kop.common.exception.EntityNotFoundException;
 import com.kop.finance.domain.Client;
 import com.kop.finance.domain.ClientStatus;
+import com.kop.finance.domain.ClientTaxType;
 import com.kop.finance.dto.ClientDto;
 import com.kop.finance.repository.ClientRepository;
 import com.kop.finance.repository.TaxInvoiceRepository;
@@ -37,7 +38,7 @@ public class ClientService {
         Client client = Client.register(
             companyId, request.businessRegistrationNumber(), request.name(), request.representativeName(),
             request.businessType(), request.businessItem(), request.address(),
-            request.email(), request.contactName(), request.contactPhone()
+            request.email(), request.contactName(), request.contactPhone(), parseTaxType(request.taxType())
         );
         return ClientDto.Response.from(clientRepository.saveAndFlush(client));
     }
@@ -72,7 +73,8 @@ public class ClientService {
         client.update(
             request.businessRegistrationNumber(), request.name(), request.representativeName(),
             request.businessType(), request.businessItem(), request.address(),
-            request.email(), request.contactName(), request.contactPhone(), parseStatus(request.status())
+            request.email(), request.contactName(), request.contactPhone(),
+            parseStatus(request.status()), parseTaxType(request.taxType())
         );
         return ClientDto.Response.from(client);
     }
@@ -108,6 +110,14 @@ public class ClientService {
             return ClientStatus.valueOf(value);
         } catch (IllegalArgumentException e) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "지원하지 않는 상태값입니다: " + value);
+        }
+    }
+
+    private ClientTaxType parseTaxType(String value) {
+        try {
+            return ClientTaxType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "지원하지 않는 과세유형입니다: " + value);
         }
     }
 }

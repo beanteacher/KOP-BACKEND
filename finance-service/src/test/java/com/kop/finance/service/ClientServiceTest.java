@@ -3,6 +3,7 @@ package com.kop.finance.service;
 import com.kop.common.exception.BusinessException;
 import com.kop.finance.domain.Client;
 import com.kop.finance.domain.ClientStatus;
+import com.kop.finance.domain.ClientTaxType;
 import com.kop.finance.dto.ClientDto;
 import com.kop.finance.repository.ClientRepository;
 import com.kop.finance.repository.TaxInvoiceRepository;
@@ -43,11 +44,13 @@ class ClientServiceTest {
     }
 
     private ClientDto.RegisterRequest request() {
-        return new ClientDto.RegisterRequest("1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울시 강남구", null, null, null);
+        return new ClientDto.RegisterRequest("1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울시 강남구", null, null, null, "GENERAL");
     }
 
     private Client existingClient() {
-        Client client = Client.register(companyId, "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울시 강남구", null, null, null);
+        Client client = Client.register(
+            companyId, "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울시 강남구", null, null, null, ClientTaxType.GENERAL
+        );
         ReflectionTestUtils.setField(client, "id", UUID.randomUUID());
         return client;
     }
@@ -65,6 +68,17 @@ class ClientServiceTest {
 
         assertThat(response.name()).isEqualTo("한성식자재");
         assertThat(response.status()).isEqualTo("ACTIVE");
+        assertThat(response.taxType()).isEqualTo("GENERAL");
+    }
+
+    @Test
+    void register_과세유형이_지원하지_않는_값이면_VALIDATION_ERROR를_던진다() {
+        when(clientRepository.existsByCompanyIdAndBusinessRegistrationNumber(companyId, "1234567890")).thenReturn(false);
+        var request = new ClientDto.RegisterRequest("1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울시 강남구", null, null, null, "INVALID");
+
+        assertThatThrownBy(() -> clientService.register(admin, request))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("code", "VALIDATION_ERROR");
     }
 
     @Test
@@ -93,7 +107,7 @@ class ClientServiceTest {
         when(clientRepository.findByIdAndCompanyId(client.getId(), companyId)).thenReturn(Optional.of(client));
         when(clientRepository.existsByCompanyIdAndBusinessRegistrationNumberAndIdNot(companyId, "9999999999", client.getId()))
             .thenReturn(true);
-        var request = new ClientDto.UpdateRequest("9999999999", "새이름", "홍길동", "도소매", "식자재", "서울", null, null, null, "ACTIVE");
+        var request = new ClientDto.UpdateRequest("9999999999", "새이름", "홍길동", "도소매", "식자재", "서울", null, null, null, "ACTIVE", "GENERAL");
 
         assertThatThrownBy(() -> clientService.update(admin, client.getId(), request))
             .isInstanceOf(BusinessException.class)
@@ -104,7 +118,7 @@ class ClientServiceTest {
     void update_status를_INACTIVE로_바꿀_수_있다() {
         Client client = existingClient();
         when(clientRepository.findByIdAndCompanyId(client.getId(), companyId)).thenReturn(Optional.of(client));
-        var request = new ClientDto.UpdateRequest("1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null, "INACTIVE");
+        var request = new ClientDto.UpdateRequest("1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null, "INACTIVE", "GENERAL");
 
         ClientDto.Response response = clientService.update(admin, client.getId(), request);
 

@@ -48,18 +48,37 @@ public class TaxInvoiceItem {
     @Column(name = "sort_order", nullable = false)
     private short sortOrder;
 
-    private TaxInvoiceItem(TaxInvoice taxInvoice, String name, String spec, Integer quantity, Long unitPrice, short sortOrder) {
+    private TaxInvoiceItem(
+        TaxInvoice taxInvoice, String name, String spec, Integer quantity, Long unitPrice, short sortOrder,
+        Long supplyAmount, Long taxAmount
+    ) {
         this.taxInvoice = taxInvoice;
         this.name = name;
         this.spec = spec;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
-        this.supplyAmount = unitPrice * quantity;
-        this.taxAmount = Math.round(this.supplyAmount / 10.0);
+        this.supplyAmount = supplyAmount;
+        this.taxAmount = taxAmount;
         this.sortOrder = sortOrder;
     }
 
+    /** 수동 작성(TaxInvoiceService) — unitPrice는 부가세 별도(세전) 단가, 세액은 그 위에 10%를 더한다. */
     static TaxInvoiceItem of(TaxInvoice taxInvoice, String name, String spec, Integer quantity, Long unitPrice, int sortOrder) {
-        return new TaxInvoiceItem(taxInvoice, name, spec, quantity, unitPrice, (short) sortOrder);
+        long supplyAmount = unitPrice * quantity;
+        long taxAmount = Math.round(supplyAmount / 10.0);
+        return new TaxInvoiceItem(taxInvoice, name, spec, quantity, unitPrice, (short) sortOrder, supplyAmount, taxAmount);
+    }
+
+    /**
+     * 영수증 자동발행 중 부가세를 별도로 못 받은 거래처(TaxInvoiceAutoIssuanceService) — unitPrice ×
+     * quantity 자체가 이미 실제로 받은 최종 금액이라고 보고 거꾸로 공급가액·세액을 나눈다
+     * (공급가액 = 총액 ÷ 1.1, 세액 = 총액 − 공급가액). 우리가 부가세를 대신 떠안는 만큼 공급가액이
+     * 줄어드는 걸 그대로 반영한다.
+     */
+    static TaxInvoiceItem ofInclusive(TaxInvoice taxInvoice, String name, String spec, Integer quantity, Long unitPrice, int sortOrder) {
+        long total = unitPrice * quantity;
+        long supplyAmount = Math.round(total / 1.1);
+        long taxAmount = total - supplyAmount;
+        return new TaxInvoiceItem(taxInvoice, name, spec, quantity, unitPrice, (short) sortOrder, supplyAmount, taxAmount);
     }
 }

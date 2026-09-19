@@ -40,7 +40,12 @@ public class Receipt {
     @Column(name = "receipt_date", nullable = false)
     private LocalDate receiptDate;
 
-    /** 품목(items) 합계 — 애플리케이션이 계산해 저장한다. {@link #replaceItems} 참고. */
+    /**
+     * 품목(items) 합계 — 애플리케이션이 계산해 저장한다. 부가세 포함/제외 여부는 거래처와 합의된
+     * 실제 청구·입금 금액을 등록자가 그대로 입력한다는 전제라 별도 구분 없이 하나의 "실제 총액"으로
+     * 다룬다(입금 매칭이 이 값과 정확히 같은 입금을 찾는다). 부가세 별도(세전) 단가 입력은 세금계산서
+     * 작성 화면에서만 쓴다(TaxInvoiceItem 참고). {@link #replaceItems} 참고.
+     */
     @Column(nullable = false)
     private Long amount;
 

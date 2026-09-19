@@ -2,6 +2,7 @@ package com.kop.finance.service;
 
 import com.kop.common.exception.BusinessException;
 import com.kop.finance.domain.Client;
+import com.kop.finance.domain.ClientTaxType;
 import com.kop.finance.domain.TaxInvoice;
 import com.kop.finance.dto.TaxInvoiceDto;
 import com.kop.finance.issuance.TaxInvoiceIssuanceGateway;
@@ -49,7 +50,9 @@ class TaxInvoiceServiceTest {
     }
 
     private Client clientOf() {
-        Client client = Client.register(companyId, "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null);
+        Client client = Client.register(
+            companyId, "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null, ClientTaxType.GENERAL
+        );
         ReflectionTestUtils.setField(client, "id", UUID.randomUUID());
         return client;
     }

@@ -55,6 +55,11 @@ public class Client {
     @Column(nullable = false, length = 20)
     private ClientStatus status;
 
+    /** 부가세를 별도로 더 받을 수 있는 거래처인지 — GENERAL만 해당(Receipt.replaceItems 참고). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tax_type", nullable = false, length = 20)
+    private ClientTaxType taxType;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -65,7 +70,8 @@ public class Client {
 
     private Client(
         UUID companyId, String businessRegistrationNumber, String name, String representativeName,
-        String businessType, String businessItem, String address, String email, String contactName, String contactPhone
+        String businessType, String businessItem, String address, String email, String contactName, String contactPhone,
+        ClientTaxType taxType
     ) {
         this.companyId = companyId;
         this.businessRegistrationNumber = businessRegistrationNumber;
@@ -78,16 +84,18 @@ public class Client {
         this.contactName = contactName;
         this.contactPhone = contactPhone;
         this.status = ClientStatus.ACTIVE;
+        this.taxType = taxType;
     }
 
     /** B-1 거래처 등록. */
     public static Client register(
         UUID companyId, String businessRegistrationNumber, String name, String representativeName,
-        String businessType, String businessItem, String address, String email, String contactName, String contactPhone
+        String businessType, String businessItem, String address, String email, String contactName, String contactPhone,
+        ClientTaxType taxType
     ) {
         return new Client(
             companyId, businessRegistrationNumber, name, representativeName,
-            businessType, businessItem, address, email, contactName, contactPhone
+            businessType, businessItem, address, email, contactName, contactPhone, taxType
         );
     }
 
@@ -99,7 +107,7 @@ public class Client {
     public void update(
         String businessRegistrationNumber, String name, String representativeName,
         String businessType, String businessItem, String address, String email, String contactName, String contactPhone,
-        ClientStatus status
+        ClientStatus status, ClientTaxType taxType
     ) {
         this.businessRegistrationNumber = businessRegistrationNumber;
         this.name = name;
@@ -111,5 +119,6 @@ public class Client {
         this.contactName = contactName;
         this.contactPhone = contactPhone;
         this.status = status;
+        this.taxType = taxType;
     }
 }

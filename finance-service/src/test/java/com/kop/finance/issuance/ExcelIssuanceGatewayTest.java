@@ -1,6 +1,7 @@
 package com.kop.finance.issuance;
 
 import com.kop.finance.domain.Client;
+import com.kop.finance.domain.ClientTaxType;
 import com.kop.finance.domain.TaxInvoice;
 import com.kop.finance.domain.TaxInvoiceStatus;
 import org.apache.poi.ss.usermodel.Row;
@@ -22,7 +23,9 @@ class ExcelIssuanceGatewayTest {
     ExcelIssuanceGateway gateway = new ExcelIssuanceGateway();
 
     private Client clientOf() {
-        Client client = Client.register(UUID.randomUUID(), "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null);
+        Client client = Client.register(
+            UUID.randomUUID(), "1234567890", "한성식자재", "홍길동", "도소매", "식자재", "서울", null, null, null, ClientTaxType.GENERAL
+        );
         ReflectionTestUtils.setField(client, "id", UUID.randomUUID());
         return client;
     }
