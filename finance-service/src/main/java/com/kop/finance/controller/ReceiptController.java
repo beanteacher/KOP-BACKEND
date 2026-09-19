@@ -79,10 +79,9 @@ public class ReceiptController {
 
     @PostMapping("/{id}/mark-paid")
     public ResponseEntity<ApiResponse<ReceiptDto.Response>> markPaid(
-        @AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id,
-        @RequestBody(required = false) ReceiptDto.MarkPaidRequest request
+        @AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id
     ) {
-        return ResponseEntity.ok(ApiResponse.of(receiptService.markPaid(principal, id, request)));
+        return ResponseEntity.ok(ApiResponse.of(receiptService.markPaid(principal, id)));
     }
 
     @PostMapping("/{id}/cancel")
@@ -90,5 +89,11 @@ public class ReceiptController {
         @AuthenticationPrincipal EmployeePrincipal principal, @PathVariable UUID id
     ) {
         return ResponseEntity.ok(ApiResponse.of(receiptService.cancel(principal, id)));
+    }
+
+    /** 관리자 전용 — 오픈뱅킹 입금 내역을 조회해 PENDING 영수증과 자동 매칭한다(입금 매칭 즉시 실행). */
+    @PostMapping("/match-payments")
+    public ResponseEntity<ApiResponse<ReceiptDto.MatchPaymentsResponse>> matchPayments(@AuthenticationPrincipal EmployeePrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.of(ReceiptDto.MatchPaymentsResponse.from(receiptService.matchPayments(principal))));
     }
 }

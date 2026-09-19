@@ -31,6 +31,8 @@ import static org.mockito.Mockito.*;
 class ReceiptServiceTest {
 
     @Mock ReceiptRepository receiptRepository;
+    @Mock TaxInvoiceAutoIssuanceService taxInvoiceAutoIssuanceService;
+    @Mock PaymentMatchingService paymentMatchingService;
 
     ReceiptService receiptService;
 
@@ -42,7 +44,7 @@ class ReceiptServiceTest {
 
     @BeforeEach
     void setUp() {
-        receiptService = new ReceiptService(receiptRepository);
+        receiptService = new ReceiptService(receiptRepository, taxInvoiceAutoIssuanceService, paymentMatchingService);
         admin = new EmployeePrincipal(adminId.toString(), companyId.toString(), "ADMIN", "FREE");
         staff = new EmployeePrincipal(staffId.toString(), companyId.toString(), "STAFF", "FREE");
     }
@@ -308,23 +310,13 @@ class ReceiptServiceTest {
     @Test
     void markPaid_관리자가_PENDING_영수증을_PAID로_전이한다() {
         Receipt receipt = receiptOf(staffId, Instant.now());
-        UUID transactionId = UUID.randomUUID();
         when(receiptRepository.findByIdAndCompanyIdAndDeletedAtIsNull(receipt.getId(), companyId)).thenReturn(Optional.of(receipt));
 
-        ReceiptDto.Response response = receiptService.markPaid(admin, receipt.getId(), new ReceiptDto.MarkPaidRequest(transactionId.toString()));
+        ReceiptDto.Response response = receiptService.markPaid(admin, receipt.getId());
 
         assertThat(response.paymentStatus()).isEqualTo("PAID");
         assertThat(response.paidAt()).isNotNull();
-    }
-
-    @Test
-    void markPaid_body가_없어도_PAID로_전이한다() {
-        Receipt receipt = receiptOf(staffId, Instant.now());
-        when(receiptRepository.findByIdAndCompanyIdAndDeletedAtIsNull(receipt.getId(), companyId)).thenReturn(Optional.of(receipt));
-
-        ReceiptDto.Response response = receiptService.markPaid(admin, receipt.getId(), null);
-
-        assertThat(response.paymentStatus()).isEqualTo("PAID");
+        verify(taxInvoiceAutoIssuanceService).issueIfEligible(receipt);
     }
 
     @Test
@@ -333,7 +325,7 @@ class ReceiptServiceTest {
         receipt.cancel();
         when(receiptRepository.findByIdAndCompanyIdAndDeletedAtIsNull(receipt.getId(), companyId)).thenReturn(Optional.of(receipt));
 
-        assertThatThrownBy(() -> receiptService.markPaid(admin, receipt.getId(), null))
+        assertThatThrownBy(() -> receiptService.markPaid(admin, receipt.getId()))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("code", "RECEIPT_NOT_PENDING");
     }
@@ -342,11 +334,30 @@ class ReceiptServiceTest {
     void markPaid_직원이_호출하면_FORBIDDEN을_던진다() {
         UUID id = UUID.randomUUID();
 
-        assertThatThrownBy(() -> receiptService.markPaid(staff, id, null))
+        assertThatThrownBy(() -> receiptService.markPaid(staff, id))
             .isInstanceOf(BusinessException.class)
             .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
 
         verifyNoInteractions(receiptRepository);
+    }
+
+    @Test
+    void matchPayments_관리자가_호출하면_PaymentMatchingService에_위임한다() {
+        when(paymentMatchingService.matchForCompany(companyId)).thenReturn(new PaymentMatchingService.MatchResult(3, 2));
+
+        PaymentMatchingService.MatchResult result = receiptService.matchPayments(admin);
+
+        assertThat(result.pendingCount()).isEqualTo(3);
+        assertThat(result.matchedCount()).isEqualTo(2);
+    }
+
+    @Test
+    void matchPayments_직원이_호출하면_FORBIDDEN을_던진다() {
+        assertThatThrownBy(() -> receiptService.matchPayments(staff))
+            .isInstanceOf(BusinessException.class)
+            .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
+
+        verifyNoInteractions(paymentMatchingService);
     }
 
     @Test

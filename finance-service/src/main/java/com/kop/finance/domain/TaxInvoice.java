@@ -67,6 +67,10 @@ public class TaxInvoice {
     @Column(name = "revised_from_id")
     private UUID revisedFromId;
 
+    /** 입금 매칭 자동발행(PaymentMatchingService)의 출처 영수증 — 수동 작성 건은 null. */
+    @Column(name = "source_receipt_id")
+    private UUID sourceReceiptId;
+
     @Column(name = "cancel_reason", length = 100)
     private String cancelReason;
 
@@ -88,7 +92,10 @@ public class TaxInvoice {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    private TaxInvoice(UUID companyId, UUID createdBy, Client client, LocalDate issueDate, TaxInvoiceStatus status, String note, UUID revisedFromId) {
+    private TaxInvoice(
+        UUID companyId, UUID createdBy, Client client, LocalDate issueDate, TaxInvoiceStatus status, String note,
+        UUID revisedFromId, UUID sourceReceiptId
+    ) {
         this.companyId = companyId;
         this.createdBy = createdBy;
         this.client = client;
@@ -97,11 +104,22 @@ public class TaxInvoice {
         this.issueMethod = TaxInvoiceIssueMethod.EXCEL; // 지금은 EXCEL만 실제 동작(HOMETAX_API는 유료 플랜 스텁)
         this.note = note;
         this.revisedFromId = revisedFromId;
+        this.sourceReceiptId = sourceReceiptId;
     }
 
     /** B-2 세금계산서 작성 — status는 DRAFT 또는 COMPLETED 중 요청 시점에 결정(Service에서 검증). */
     public static TaxInvoice create(UUID companyId, UUID createdBy, Client client, LocalDate issueDate, TaxInvoiceStatus status, String note) {
-        return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, null);
+        return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, null, null);
+    }
+
+    /**
+     * 입금 매칭 자동발행(PaymentMatchingService/TaxInvoiceAutoIssuanceService) — 영수증 입금이
+     * 확인되면 관리자 개입 없이 바로 COMPLETED 상태로 만든다. createdBy는 매칭을 수행한 시스템
+     * 주체가 아니라 원 영수증 작성자를 그대로 쓴다(감사 추적상 "누가 이 매출을 등록했는가"가
+     * "누가 입금 확인 버튼을 눌렀는가"보다 의미 있는 값이라 판단).
+     */
+    public static TaxInvoice createFromReceipt(UUID companyId, UUID createdBy, Client client, LocalDate issueDate, String note, UUID sourceReceiptId) {
+        return new TaxInvoice(companyId, createdBy, client, issueDate, TaxInvoiceStatus.COMPLETED, note, null, sourceReceiptId);
     }
 
     /**
@@ -112,7 +130,7 @@ public class TaxInvoice {
     public static TaxInvoice createRevision(
         UUID companyId, UUID createdBy, Client client, LocalDate issueDate, TaxInvoiceStatus status, String note, UUID revisedFromId
     ) {
-        return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, revisedFromId);
+        return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, revisedFromId, null);
     }
 
     /** 등록·수정 양쪽에서 품목 전체를 교체하고 공급가액·세액·합계를 다시 계산한다. */

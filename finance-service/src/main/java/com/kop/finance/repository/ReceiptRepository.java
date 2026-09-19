@@ -10,12 +10,16 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface ReceiptRepository extends JpaRepository<Receipt, UUID> {
 
     Optional<Receipt> findByIdAndCompanyIdAndDeletedAtIsNull(UUID id, UUID companyId);
+
+    // 입금 매칭(PaymentMatchingService) — 미확인 영수증을 오래된 것부터 우선 매칭한다.
+    List<Receipt> findByCompanyIdAndPaymentStatusAndDeletedAtIsNullOrderByReceiptDateAsc(UUID companyId, PaymentStatus paymentStatus);
 
     // A-1 Free 플랜 월 한도 — from(월 1일 00:00) <= createdAt < to(다음 달 1일 00:00).
     @Query("""

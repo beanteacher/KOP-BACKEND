@@ -28,6 +28,8 @@ public class ReceiptService {
     private static final int FREE_MONTHLY_LIMIT = 20;
 
     private final ReceiptRepository receiptRepository;
+    private final TaxInvoiceAutoIssuanceService taxInvoiceAutoIssuanceService;
+    private final PaymentMatchingService paymentMatchingService;
 
     @Transactional
     public ReceiptDto.Response register(EmployeePrincipal principal, ReceiptDto.RegisterRequest request) {
@@ -100,18 +102,33 @@ public class ReceiptService {
         receipt.softDelete();
     }
 
-    /** 관리자 전용 — PENDING 영수증의 입금을 확인해 PAID로 전이한다. */
+    /**
+     * 관리자 전용 — PENDING 영수증의 입금을 수동으로 확인해 PAID로 전이한다. 자동 매칭
+     * (PaymentMatchingService)이 못 찾은 건을 관리자가 직접 확인했을 때 쓰는 경로라 은행
+     * 거래 참조값은 받지 않는다(matchedTransactionId는 null로 남는다). 입금 확인과 동시에
+     * 거래처가 지정된 건이면 세금계산서를 자동발행한다 — 자동 매칭 경로와 동일하게 처리해야
+     * "수동으로 확인만 하고 세금계산서는 안 나가는" 불일치가 생기지 않는다.
+     */
     @Transactional
-    public ReceiptDto.Response markPaid(EmployeePrincipal principal, UUID id, ReceiptDto.MarkPaidRequest request) {
+    public ReceiptDto.Response markPaid(EmployeePrincipal principal, UUID id) {
         if (!principal.isAdmin()) {
             throw forbidden();
         }
         Receipt receipt = findOwned(principal, id);
         assertPending(receipt);
 
-        UUID transactionId = request == null ? null : parseUuidOrNull(request.transactionId());
-        receipt.markPaid(transactionId);
+        receipt.markPaid(null);
+        taxInvoiceAutoIssuanceService.issueIfEligible(receipt);
         return ReceiptDto.Response.from(receipt);
+    }
+
+    /** 관리자 전용 — 오픈뱅킹 입금 내역을 조회해 PENDING 영수증과 자동 매칭한다. */
+    @Transactional
+    public PaymentMatchingService.MatchResult matchPayments(EmployeePrincipal principal) {
+        if (!principal.isAdmin()) {
+            throw forbidden();
+        }
+        return paymentMatchingService.matchForCompany(UUID.fromString(principal.companyId()));
     }
 
     /** 관리자 전용 — PENDING 영수증을 취소한다. */

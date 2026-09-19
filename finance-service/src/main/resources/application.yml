@@ -52,6 +52,11 @@ openbanking:
   institution-code: ${OPENBANKING_INSTITUTION_CODE:}
   gateway-provider: ${OPENBANKING_GATEWAY_PROVIDER:mock}
 
+# 입금-영수증 자동 매칭(PaymentMatchingScheduler) 배치 주기 — gateway-provider=mock인 동안은
+# 항상 빈 목록을 조회해 0건 매칭으로 끝나므로(설계상 의도) 로컬 기본값을 그대로 둬도 안전하다.
+payment-matching:
+  fixed-delay-ms: ${PAYMENT_MATCHING_FIXED_DELAY_MS:1800000}
+
 management:
   endpoints:
     web:

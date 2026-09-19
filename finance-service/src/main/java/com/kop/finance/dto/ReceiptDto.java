@@ -2,6 +2,7 @@ package com.kop.finance.dto;
 
 import com.kop.finance.domain.Receipt;
 import com.kop.finance.domain.ReceiptItem;
+import com.kop.finance.service.PaymentMatchingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -41,8 +42,12 @@ public class ReceiptDto {
         @NotEmpty(message = "품목은 최소 1개 이상 등록해야 합니다") @Valid List<ItemRequest> items
     ) {}
 
-    /** transactionId는 오픈뱅킹 입금 매칭 결과를 관리자가 수동으로 지정할 때만 사용 — 없으면 null. */
-    public record MarkPaidRequest(String transactionId) {}
+    /** POST /api/receipts/match-payments 응답 — 이번 실행에서 몇 건 중 몇 건을 자동 매칭했는지. */
+    public record MatchPaymentsResponse(int pendingCount, int matchedCount) {
+        public static MatchPaymentsResponse from(PaymentMatchingService.MatchResult result) {
+            return new MatchPaymentsResponse(result.pendingCount(), result.matchedCount());
+        }
+    }
 
     public record ItemResponse(String id, String name, String spec, Integer quantity, Long unitPrice, Long amount) {
         public static ItemResponse from(ReceiptItem item) {
