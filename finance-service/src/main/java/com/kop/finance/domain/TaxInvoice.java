@@ -104,11 +104,15 @@ public class TaxInvoice {
         return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, null);
     }
 
-    /** B-4 수정 발행 — 원본을 복사해 새 건으로 만든다(품목은 이후 replaceItems로 채운다). */
-    public static TaxInvoice reviseFrom(TaxInvoice original) {
-        return new TaxInvoice(
-            original.companyId, original.createdBy, original.client, LocalDate.now(), TaxInvoiceStatus.DRAFT, original.note, original.id
-        );
+    /**
+     * B-4 수정 발행 — 새 값으로 새 건을 만들되 원본을 revisedFromId로 참조한다(품목은 이후
+     * replaceItems로 채운다). 필드는 원본을 그대로 베끼지 않는다 — "수정"이 요청의 목적이라
+     * Service가 새 요청 값(클라이언트·작성일자·상태·비고)을 그대로 넘긴다.
+     */
+    public static TaxInvoice createRevision(
+        UUID companyId, UUID createdBy, Client client, LocalDate issueDate, TaxInvoiceStatus status, String note, UUID revisedFromId
+    ) {
+        return new TaxInvoice(companyId, createdBy, client, issueDate, status, note, revisedFromId);
     }
 
     /** 등록·수정 양쪽에서 품목 전체를 교체하고 공급가액·세액·합계를 다시 계산한다. */
